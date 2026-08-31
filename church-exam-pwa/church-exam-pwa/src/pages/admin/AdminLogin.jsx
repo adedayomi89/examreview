@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { BrandMark } from '../../components/Brand.jsx'
+import PasswordField from '../../components/PasswordField.jsx'
 
 export default function AdminLogin() {
   const { signInAdmin } = useAuth()
@@ -49,9 +50,7 @@ export default function AdminLogin() {
           </div>
           <div>
             <label className="label">Password</label>
-            <input
-              className="field"
-              type="password"
+            <PasswordField
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}

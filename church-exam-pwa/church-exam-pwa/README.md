@@ -39,6 +39,14 @@ church-exam-pwa/
    - **anon public** key
    - **service_role** key (⚠️ keep this one secret — never put it in the
      `VITE_` prefixed variables or it will end up in the browser bundle)
+4. Go to **Authentication → Providers → Email** and turn **off** "Confirm
+   email". Students sign up with a made-up address behind the scenes (see
+   below) that nobody can actually check, so email confirmation can never
+   succeed for them — leaving it on causes Supabase to try sending
+   confirmation emails anyway, which quickly hits Supabase's built-in email
+   rate limit and blocks new signups with a "rate limit exceeded" error.
+   This is safe to disable here: student accounts are protected by their
+   password, not by proving ownership of an email inbox.
 
 That's the entire database setup — no manual table clicking required.
 

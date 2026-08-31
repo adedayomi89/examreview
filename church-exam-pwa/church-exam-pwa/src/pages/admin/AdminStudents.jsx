@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient.js'
 import { adminCreateStudent, adminDeleteStudent, adminResetPassword } from '../../lib/adminApi.js'
 import { useClasses } from '../../lib/useClasses.js'
+import PasswordField from '../../components/PasswordField.jsx'
 
 export default function AdminStudents() {
   const [students, setStudents] = useState(null)
@@ -175,7 +176,7 @@ function AddStudentModal({ onClose, onCreated }) {
         </div>
         <div>
           <label className="label">Temporary password</label>
-          <input className="field" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordField required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
         {error && <p className="text-sm text-rose">{error}</p>}
         <div className="flex gap-3 mt-1">
@@ -220,7 +221,7 @@ function ResetPasswordModal({ student, onClose }) {
         <form onSubmit={submit} className="flex flex-col gap-4">
           <div>
             <label className="label">New password</label>
-            <input className="field" required minLength={6} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+            <PasswordField required minLength={6} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
           </div>
           {error && <p className="text-sm text-rose">{error}</p>}
           <div className="flex gap-3 mt-1">

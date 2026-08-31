@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext.jsx'
 import { useSettings } from '../../contexts/SettingsContext.jsx'
 import { useClasses } from '../../lib/useClasses.js'
 import { BrandMark } from '../../components/Brand.jsx'
+import PasswordField from '../../components/PasswordField.jsx'
 
 export default function StudentLogin() {
   const { signInStudent, signUpStudent } = useAuth()
@@ -94,9 +95,7 @@ export default function StudentLogin() {
           </div>
           <div>
             <label className="label">Password</label>
-            <input
-              className="field"
-              type="password"
+            <PasswordField
               required
               minLength={6}
               value={password}

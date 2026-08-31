@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { BrandMark } from '../../components/Brand.jsx'
+import PasswordField from '../../components/PasswordField.jsx'
 
 const SETUP_CODE = import.meta.env.VITE_ADMIN_SETUP_CODE || ''
 
@@ -55,9 +56,7 @@ export default function AdminSignup() {
           </div>
           <div>
             <label className="label">Password</label>
-            <input
-              className="field"
-              type="password"
+            <PasswordField
               required
               minLength={6}
               value={password}
