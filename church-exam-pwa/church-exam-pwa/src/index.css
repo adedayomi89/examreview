@@ -32,25 +32,25 @@ body {
     @apply btn bg-gold text-indigo-deep hover:bg-gold-light active:scale-[0.98];
   }
   .btn-outline {
-    @apply btn border border-indigo/25 text-indigo hover:bg-indigo/5 active:scale-[0.98];
+    @apply btn border border-[#2D1B4E40] text-indigo hover:bg-[#2D1B4E0D] active:scale-[0.98];
   }
   .btn-danger {
     @apply btn bg-rose text-cream hover:opacity-90 active:scale-[0.98];
   }
   .btn-ghost {
-    @apply btn text-indigo hover:bg-indigo/5;
+    @apply btn text-indigo hover:bg-[#2D1B4E0D];
   }
 
   .field {
-    @apply w-full rounded-2xl border border-indigo/15 bg-paper px-4 py-3 text-ink placeholder:text-ink/35 focus:border-gold focus:ring-2 focus:ring-gold/25 outline-none transition-colors;
+    @apply w-full rounded-2xl border border-[#2D1B4E26] bg-paper px-4 py-3 text-ink placeholder:text-[#1C122059] focus:border-gold focus:ring-2 focus:ring-[#C9A22740] outline-none transition-colors;
   }
 
   .card {
-    @apply rounded-3xl border border-indigo/8 bg-paper shadow-card;
+    @apply rounded-3xl border border-[#2D1B4E14] bg-paper shadow-card;
   }
 
   .label {
-    @apply block text-[13px] font-semibold text-indigo/70 mb-1.5;
+    @apply block text-[13px] font-semibold text-[#2D1B4EB3] mb-1.5;
   }
 
   .rich-editor {
