@@ -13,7 +13,7 @@ export function AuthProvider({ children }) {
       setProfile(null)
       return
     }
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
+    const { data } = await supabase.from('profiles').select('*, classes(name)').eq('id', userId).single()
     setProfile(data || null)
   }, [])
 
@@ -39,12 +39,12 @@ export function AuthProvider({ children }) {
     }
   }, [loadProfile])
 
-  const signUpStudent = async ({ fullName, username, password }) => {
+  const signUpStudent = async ({ fullName, username, password, classId }) => {
     const email = usernameToEmail(username)
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { role: 'student', full_name: fullName, username: username.trim() } }
+      options: { data: { role: 'student', full_name: fullName, username: username.trim(), class_id: classId || '' } }
     })
     if (error) throw error
     return data

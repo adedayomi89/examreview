@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient.js'
+import { useClasses } from '../../lib/useClasses.js'
 
 export default function AdminAttempts() {
   const [attempts, setAttempts] = useState(null)
   const [exams, setExams] = useState([])
   const [examFilter, setExamFilter] = useState('all')
+  const [classFilter, setClassFilter] = useState('all')
+  const { classes } = useClasses()
 
   useEffect(() => {
     const load = async () => {
@@ -12,7 +15,7 @@ export default function AdminAttempts() {
         supabase.from('exams').select('id, title').order('created_at', { ascending: false }),
         supabase
           .from('attempts')
-          .select('id, score, total_points, submitted_at, status, exam_id, exams(title), profiles(full_name, username)')
+          .select('id, score, total_points, submitted_at, status, exam_id, exams(title), profiles(full_name, username, class_id, classes(name))')
           .eq('status', 'submitted')
           .order('submitted_at', { ascending: false })
       ])
@@ -22,15 +25,20 @@ export default function AdminAttempts() {
     load()
   }, [])
 
-  const filtered = (attempts || []).filter((a) => examFilter === 'all' || a.exam_id === examFilter)
+  const filtered = (attempts || []).filter(
+    (a) =>
+      (examFilter === 'all' || a.exam_id === examFilter) &&
+      (classFilter === 'all' || a.profiles?.class_id === classFilter)
+  )
 
   const exportCsv = () => {
-    const rows = [['Student', 'Username', 'Exam', 'Score', 'Total', 'Percent', 'Submitted']]
+    const rows = [['Student', 'Username', 'Class', 'Exam', 'Score', 'Total', 'Percent', 'Submitted']]
     filtered.forEach((a) => {
       const pct = a.total_points ? Math.round((a.score / a.total_points) * 100) : 0
       rows.push([
         a.profiles?.full_name,
         a.profiles?.username,
+        a.profiles?.classes?.name || '',
         a.exams?.title,
         a.score,
         a.total_points,
@@ -60,12 +68,20 @@ export default function AdminAttempts() {
         </button>
       </div>
 
-      <select className="field max-w-xs" value={examFilter} onChange={(e) => setExamFilter(e.target.value)}>
-        <option value="all">All exams</option>
-        {exams.map((e) => (
-          <option key={e.id} value={e.id}>{e.title}</option>
-        ))}
-      </select>
+      <div className="flex gap-3 flex-wrap">
+        <select className="field max-w-xs" value={examFilter} onChange={(e) => setExamFilter(e.target.value)}>
+          <option value="all">All exams</option>
+          {exams.map((e) => (
+            <option key={e.id} value={e.id}>{e.title}</option>
+          ))}
+        </select>
+        <select className="field max-w-xs" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+          <option value="all">All classes</option>
+          {classes.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      </div>
 
       <div className="card overflow-hidden overflow-x-auto">
         {attempts === null ? (
@@ -89,7 +105,7 @@ export default function AdminAttempts() {
                   <tr key={a.id} className="border-b border-indigo/6 last:border-0">
                     <td className="px-5 py-3">
                       <p className="font-medium text-ink">{a.profiles?.full_name}</p>
-                      <p className="text-xs text-ink/45">{a.profiles?.username}</p>
+                      <p className="text-xs text-ink/45">{a.profiles?.username} · {a.profiles?.classes?.name || 'No class'}</p>
                     </td>
                     <td className="px-5 py-3 text-ink/70">{a.exams?.title}</td>
                     <td className="px-5 py-3">

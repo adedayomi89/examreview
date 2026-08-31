@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient.js'
 import { useSettings } from '../../contexts/SettingsContext.jsx'
 import { uploadMediaFile } from '../../lib/uploadMedia.js'
+import { useClasses } from '../../lib/useClasses.js'
 
 export default function AdminSettings() {
   const { settings, refresh } = useSettings()
@@ -92,6 +93,69 @@ export default function AdminSettings() {
           {saved && <span className="text-sm text-forest">Saved ✓</span>}
         </div>
       </form>
+
+      <ClassesManager />
+    </div>
+  )
+}
+
+function ClassesManager() {
+  const { classes, refresh } = useClasses()
+  const [newName, setNewName] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [error, setError] = useState('')
+
+  const addClass = async (e) => {
+    e.preventDefault()
+    if (!newName.trim()) return
+    setError('')
+    setAdding(true)
+    const { error } = await supabase.from('classes').insert({ name: newName.trim() })
+    setAdding(false)
+    if (error) {
+      setError(error.message.includes('duplicate') ? 'That class already exists.' : error.message)
+      return
+    }
+    setNewName('')
+    refresh()
+  }
+
+  const removeClass = async (cls) => {
+    if (!confirm(`Delete "${cls.name}"? Students in this class will just show as unassigned — nothing else is deleted.`)) return
+    const { error } = await supabase.from('classes').delete().eq('id', cls.id)
+    if (error) return alert(error.message)
+    refresh()
+  }
+
+  return (
+    <div className="card p-6 flex flex-col gap-4">
+      <div>
+        <h2 className="font-display text-lg font-semibold text-indigo">Classes</h2>
+        <p className="text-ink/55 text-sm mt-1">
+          What students choose from when they sign up (e.g. Righteousness, Holiness, Peace, Joy, YAYA).
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {classes.map((c) => (
+          <span key={c.id} className="inline-flex items-center gap-2 rounded-full bg-indigo/8 text-indigo text-sm font-medium px-3 py-1.5">
+            {c.name}
+            <button onClick={() => removeClass(c)} className="text-indigo/40 hover:text-rose" title="Delete class">✕</button>
+          </span>
+        ))}
+        {classes.length === 0 && <p className="text-sm text-ink/45">No classes yet — add your first one below.</p>}
+      </div>
+
+      <form onSubmit={addClass} className="flex gap-2">
+        <input
+          className="field flex-1"
+          placeholder="New class name…"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+        />
+        <button className="btn-outline shrink-0" disabled={adding}>{adding ? 'Adding…' : '+ Add'}</button>
+      </form>
+      {error && <p className="text-sm text-rose">{error}</p>}
     </div>
   )
 }

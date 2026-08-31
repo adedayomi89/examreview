@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient.js'
 import { adminCreateStudent, adminDeleteStudent, adminResetPassword } from '../../lib/adminApi.js'
+import { useClasses } from '../../lib/useClasses.js'
 
 export default function AdminStudents() {
   const [students, setStudents] = useState(null)
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [resetTarget, setResetTarget] = useState(null)
+  const { classes } = useClasses()
 
   const load = async () => {
     const { data } = await supabase
       .from('profiles')
-      .select('*')
+      .select('*, classes(name)')
       .eq('role', 'student')
       .order('full_name')
     setStudents(data || [])
@@ -29,6 +31,11 @@ export default function AdminStudents() {
     } catch (err) {
       alert(err.message)
     }
+  }
+
+  const changeClass = async (student, classId) => {
+    setStudents((prev) => prev.map((s) => (s.id === student.id ? { ...s, class_id: classId, classes: classes.find((c) => c.id === classId) } : s)))
+    await supabase.from('profiles').update({ class_id: classId || null }).eq('id', student.id)
   }
 
   const filtered = (students || []).filter((s) =>
@@ -65,6 +72,7 @@ export default function AdminStudents() {
               <tr className="text-left text-ink/45 text-xs uppercase tracking-wide border-b border-indigo/8">
                 <th className="px-5 py-3 font-medium">Name</th>
                 <th className="px-5 py-3 font-medium">Username</th>
+                <th className="px-5 py-3 font-medium">Class</th>
                 <th className="px-5 py-3 font-medium">Joined</th>
                 <th className="px-5 py-3 font-medium text-right">Actions</th>
               </tr>
@@ -74,6 +82,18 @@ export default function AdminStudents() {
                 <tr key={s.id} className="border-b border-indigo/6 last:border-0">
                   <td className="px-5 py-3 font-medium text-ink">{s.full_name}</td>
                   <td className="px-5 py-3 text-ink/60">{s.username}</td>
+                  <td className="px-5 py-3">
+                    <select
+                      className="text-xs rounded-lg border border-indigo/15 bg-paper px-2 py-1.5 text-indigo"
+                      value={s.class_id || ''}
+                      onChange={(e) => changeClass(s, e.target.value)}
+                    >
+                      <option value="">— none —</option>
+                      {classes.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </td>
                   <td className="px-5 py-3 text-ink/50">{new Date(s.created_at).toLocaleDateString()}</td>
                   <td className="px-5 py-3">
                     <div className="flex justify-end gap-2">
@@ -109,9 +129,11 @@ export default function AdminStudents() {
 }
 
 function AddStudentModal({ onClose, onCreated }) {
+  const { classes } = useClasses()
   const [fullName, setFullName] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [classId, setClassId] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -120,8 +142,9 @@ function AddStudentModal({ onClose, onCreated }) {
     setError('')
     setBusy(true)
     try {
-      const { id } = await adminCreateStudent({ fullName, username, password })
-      onCreated({ id, full_name: fullName, username, created_at: new Date().toISOString() })
+      const { id } = await adminCreateStudent({ fullName, username, password, classId })
+      const cls = classes.find((c) => c.id === classId)
+      onCreated({ id, full_name: fullName, username, class_id: classId || null, classes: cls, created_at: new Date().toISOString() })
     } catch (err) {
       setError(err.message)
     } finally {
@@ -140,6 +163,15 @@ function AddStudentModal({ onClose, onCreated }) {
           <label className="label">Username</label>
           <input className="field" required value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g. tola.james" />
           <p className="text-xs text-ink/40 mt-1">What the student will type in to sign in — no email needed.</p>
+        </div>
+        <div>
+          <label className="label">Class</label>
+          <select className="field" value={classId} onChange={(e) => setClassId(e.target.value)}>
+            <option value="">— none yet —</option>
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="label">Temporary password</label>

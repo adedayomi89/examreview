@@ -2,17 +2,20 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { useSettings } from '../../contexts/SettingsContext.jsx'
+import { useClasses } from '../../lib/useClasses.js'
 import { BrandMark } from '../../components/Brand.jsx'
 
 export default function StudentLogin() {
   const { signInStudent, signUpStudent } = useAuth()
   const { settings } = useSettings()
+  const { classes } = useClasses()
   const navigate = useNavigate()
 
   const [mode, setMode] = useState('login')
   const [fullName, setFullName] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [classId, setClassId] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -24,7 +27,7 @@ export default function StudentLogin() {
       if (mode === 'login') {
         await signInStudent({ username, password })
       } else {
-        await signUpStudent({ fullName, username, password })
+        await signUpStudent({ fullName, username, password, classId })
       }
       navigate('/student')
     } catch (err) {
@@ -65,6 +68,17 @@ export default function StudentLogin() {
             <div>
               <label className="label">Your full name</label>
               <input className="field" required value={fullName} onChange={(e) => setFullName(e.target.value)} />
+            </div>
+          )}
+          {mode === 'signup' && (
+            <div>
+              <label className="label">Your class</label>
+              <select className="field" required value={classId} onChange={(e) => setClassId(e.target.value)}>
+                <option value="" disabled>Select your class…</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
             </div>
           )}
           <div>

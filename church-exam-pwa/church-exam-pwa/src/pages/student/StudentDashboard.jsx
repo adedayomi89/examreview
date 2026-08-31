@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
+import { useClasses } from '../../lib/useClasses.js'
 
 export default function StudentDashboard() {
-  const { profile } = useAuth()
+  const { profile, refreshProfile } = useAuth()
+  const { classes } = useClasses()
   const [exams, setExams] = useState(null)
   const [attempts, setAttempts] = useState([])
+  const [savingClass, setSavingClass] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -24,6 +27,14 @@ export default function StudentDashboard() {
 
   const attemptFor = (examId) => attempts.find((a) => a.exam_id === examId)
 
+  const changeClass = async (e) => {
+    const newClassId = e.target.value
+    setSavingClass(true)
+    await supabase.from('profiles').update({ class_id: newClassId || null }).eq('id', profile.id)
+    await refreshProfile()
+    setSavingClass(false)
+  }
+
   const available = exams.filter((e) => e.is_open && !attemptFor(e.id))
   const inProgress = exams.filter((e) => {
     const a = attemptFor(e.id)
@@ -37,9 +48,25 @@ export default function StudentDashboard() {
 
   return (
     <div className="flex flex-col gap-10">
-      <div>
-        <h1 className="font-display text-2xl font-semibold text-indigo">Hello, {profile?.full_name?.split(' ')[0]} 👋</h1>
-        <p className="text-ink/55 text-sm mt-1">Here's everything for your quarterly reviews.</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="font-display text-2xl font-semibold text-indigo">Hello, {profile?.full_name?.split(' ')[0]} 👋</h1>
+          <p className="text-ink/55 text-sm mt-1">Here's everything for your quarterly reviews.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-semibold text-indigo/60">Your class</label>
+          <select
+            className="text-sm rounded-xl border border-indigo/15 bg-paper px-3 py-2 text-indigo"
+            value={profile?.class_id || ''}
+            onChange={changeClass}
+            disabled={savingClass}
+          >
+            <option value="" disabled>Select…</option>
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {inProgress.length > 0 && (

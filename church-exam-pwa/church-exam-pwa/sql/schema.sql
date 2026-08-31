@@ -3,6 +3,18 @@
 -- Run this whole file once in Supabase: Dashboard -> SQL Editor -> New query
 -- =========================================================================
 
+-- ---------- CLASSES -------------------------------------------------------
+-- Sunday School classes (Righteousness, Holiness, Peace, Joy, YAYA, ...).
+-- Manageable later from Admin -> Site settings -> Classes, no SQL needed.
+create table if not exists public.classes (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  created_at timestamptz not null default now()
+);
+insert into public.classes (name) values
+  ('Righteousness'), ('Holiness'), ('Peace'), ('Joy'), ('YAYA')
+on conflict (name) do nothing;
+
 -- ---------- PROFILES -----------------------------------------------------
 -- One row per auth.users row. role = 'admin' | 'student'.
 -- Students sign up with a username; a synthetic email is generated client-side
@@ -12,6 +24,7 @@ create table if not exists public.profiles (
   role text not null default 'student' check (role in ('admin', 'student')),
   full_name text not null,
   username text unique,
+  class_id uuid references public.classes(id) on delete set null,
   created_at timestamptz not null default now()
 );
 
@@ -37,12 +50,13 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, role, full_name, username)
+  insert into public.profiles (id, role, full_name, username, class_id)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'role', 'student'),
     coalesce(new.raw_user_meta_data->>'full_name', 'Student'),
-    new.raw_user_meta_data->>'username'
+    new.raw_user_meta_data->>'username',
+    nullif(new.raw_user_meta_data->>'class_id', '')::uuid
   );
   return new;
 end;
@@ -123,11 +137,19 @@ create index if not exists idx_attempts_exam on public.attempts(exam_id);
 -- ROW LEVEL SECURITY
 -- =========================================================================
 alter table public.profiles enable row level security;
+alter table public.classes enable row level security;
 alter table public.site_settings enable row level security;
 alter table public.exams enable row level security;
 alter table public.questions enable row level security;
 alter table public.options enable row level security;
 alter table public.attempts enable row level security;
+
+-- CLASSES: public read (needed on the signup form before login), admin write.
+drop policy if exists "classes_select_all" on public.classes;
+create policy "classes_select_all" on public.classes for select using (true);
+drop policy if exists "classes_write_admin" on public.classes;
+create policy "classes_write_admin" on public.classes for all
+  using (public.is_admin()) with check (public.is_admin());
 
 -- PROFILES: everyone can read (needed for leaderboards/admin student list);
 -- a user may update only their own row's full_name; only admins can write role.
