@@ -15,7 +15,17 @@ export function AuthProvider({ children }) {
       setTeacherClassIds([])
       return
     }
-    const { data } = await supabase.from('profiles').select('*, classes(name)').eq('id', userId).single()
+    let { data, error } = await supabase.from('profiles').select('*, classes(name)').eq('id', userId).single()
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error('Profile load (with class) failed, retrying without it:', error)
+      const fallback = await supabase.from('profiles').select('*').eq('id', userId).single()
+      data = fallback.data
+      if (fallback.error) {
+        // eslint-disable-next-line no-console
+        console.error('Profile load fallback also failed:', fallback.error)
+      }
+    }
     setProfile(data || null)
     if (data?.role === 'teacher') {
       const { data: rows } = await supabase.from('teacher_classes').select('class_id, classes(name)').eq('teacher_id', userId)
