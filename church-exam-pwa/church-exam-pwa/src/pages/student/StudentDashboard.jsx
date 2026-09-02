@@ -13,11 +13,17 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     const load = async () => {
-      const [{ data: examData }, { data: attemptData }] = await Promise.all([
+      const [{ data: examData }, { data: attemptData }, { data: ecData }] = await Promise.all([
         supabase.from('exams').select('*').order('created_at', { ascending: false }),
-        supabase.from('attempts').select('*').eq('student_id', profile.id)
+        supabase.from('attempts').select('*').eq('student_id', profile.id),
+        supabase.from('exam_classes').select('exam_id, class_id')
       ])
-      setExams(examData || [])
+      const restrictedExamIds = new Set((ecData || []).map((r) => r.exam_id))
+      const allowedExamIds = new Set(
+        (ecData || []).filter((r) => r.class_id === profile.class_id).map((r) => r.exam_id)
+      )
+      const visible = (examData || []).filter((e) => !restrictedExamIds.has(e.id) || allowedExamIds.has(e.id))
+      setExams(visible)
       setAttempts(attemptData || [])
     }
     if (profile) load()

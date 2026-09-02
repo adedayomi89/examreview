@@ -6,15 +6,23 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
+  const [teacherClassIds, setTeacherClassIds] = useState([])
   const [loading, setLoading] = useState(true)
 
   const loadProfile = useCallback(async (userId) => {
     if (!userId) {
       setProfile(null)
+      setTeacherClassIds([])
       return
     }
     const { data } = await supabase.from('profiles').select('*, classes(name)').eq('id', userId).single()
     setProfile(data || null)
+    if (data?.role === 'teacher') {
+      const { data: rows } = await supabase.from('teacher_classes').select('class_id, classes(name)').eq('teacher_id', userId)
+      setTeacherClassIds((rows || []).map((r) => r.class_id))
+    } else {
+      setTeacherClassIds([])
+    }
   }, [])
 
   useEffect(() => {
@@ -79,9 +87,11 @@ export function AuthProvider({ children }) {
   const value = {
     session,
     profile,
+    teacherClassIds,
     loading,
     isAdmin: profile?.role === 'admin',
     isStudent: profile?.role === 'student',
+    isTeacher: profile?.role === 'teacher',
     signUpStudent,
     signInStudent,
     signUpAdmin,

@@ -21,10 +21,11 @@ on conflict (name) do nothing;
 -- (see src/lib/supabaseClient.js) so real Supabase Auth still applies.
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
-  role text not null default 'student' check (role in ('admin', 'student')),
+  role text not null default 'student' check (role in ('admin', 'student', 'teacher')),
   full_name text not null,
   username text unique,
   class_id uuid references public.classes(id) on delete set null,
+  recovery_hash text,
   created_at timestamptz not null default now()
 );
 
@@ -39,6 +40,15 @@ as $$
     select 1 from public.profiles
     where id = auth.uid() and role = 'admin'
   );
+$$;
+
+create or replace function public.is_teacher()
+returns boolean
+language sql
+security definer
+stable
+as $$
+  select exists (select 1 from public.profiles where id = auth.uid() and role = 'teacher');
 $$;
 
 -- Auto-create a profile row whenever a new auth user is created.
@@ -93,13 +103,28 @@ create table if not exists public.exams (
   updated_at timestamptz not null default now()
 );
 
+-- Which classes an exam is restricted to. No rows = open to every class.
+create table if not exists public.exam_classes (
+  exam_id uuid not null references public.exams(id) on delete cascade,
+  class_id uuid not null references public.classes(id) on delete cascade,
+  primary key (exam_id, class_id)
+);
+
+-- Which class(es) each teacher account is responsible for.
+create table if not exists public.teacher_classes (
+  teacher_id uuid not null references public.profiles(id) on delete cascade,
+  class_id uuid not null references public.classes(id) on delete cascade,
+  primary key (teacher_id, class_id)
+);
+
 create table if not exists public.questions (
   id uuid primary key default gen_random_uuid(),
   exam_id uuid not null references public.exams(id) on delete cascade,
   question_order int not null default 0,
   question_html text not null default '',
   question_image_url text,
-  question_type text not null default 'single' check (question_type in ('single', 'multiple')),
+  question_type text not null default 'single'
+    check (question_type in ('single', 'multiple', 'true_false', 'fill_blank', 'matching')),
   points int not null default 1 check (points > 0)
 );
 
@@ -109,7 +134,8 @@ create table if not exists public.options (
   option_order int not null default 0,
   option_html text not null default '',
   option_image_url text,
-  is_correct boolean not null default false
+  is_correct boolean not null default false,
+  match_text text
 );
 
 -- ---------- ATTEMPTS --------------------------------------------------------
@@ -138,11 +164,30 @@ create index if not exists idx_attempts_exam on public.attempts(exam_id);
 -- =========================================================================
 alter table public.profiles enable row level security;
 alter table public.classes enable row level security;
+alter table public.exam_classes enable row level security;
+alter table public.teacher_classes enable row level security;
 alter table public.site_settings enable row level security;
 alter table public.exams enable row level security;
 alter table public.questions enable row level security;
 alter table public.options enable row level security;
 alter table public.attempts enable row level security;
+
+-- EXAM_CLASSES: any signed-in user can read (students/teachers need it to
+-- know which exams apply to them), admin-only write.
+drop policy if exists "exam_classes_select_signed_in" on public.exam_classes;
+create policy "exam_classes_select_signed_in" on public.exam_classes for select
+  using (auth.uid() is not null);
+drop policy if exists "exam_classes_write_admin" on public.exam_classes;
+create policy "exam_classes_write_admin" on public.exam_classes for all
+  using (public.is_admin()) with check (public.is_admin());
+
+-- TEACHER_CLASSES: a teacher can see their own assignments; admin sees/writes all.
+drop policy if exists "teacher_classes_select" on public.teacher_classes;
+create policy "teacher_classes_select" on public.teacher_classes for select
+  using (public.is_admin() or teacher_id = auth.uid());
+drop policy if exists "teacher_classes_write_admin" on public.teacher_classes;
+create policy "teacher_classes_write_admin" on public.teacher_classes for all
+  using (public.is_admin()) with check (public.is_admin());
 
 -- CLASSES: public read (needed on the signup form before login), admin write.
 drop policy if exists "classes_select_all" on public.classes;
@@ -213,15 +258,31 @@ drop policy if exists "options_write_admin" on public.options;
 create policy "options_write_admin" on public.options for all using (public.is_admin()) with check (public.is_admin());
 
 -- ATTEMPTS: a student can create/read/update only their own attempt on an
--- OPEN exam; admins can read every attempt (for grading/oversight).
+-- OPEN exam (and, if the exam is restricted to specific classes, only if
+-- their own class is one of them); admins can read every attempt; a teacher
+-- can read attempts belonging to students in their assigned class(es).
 drop policy if exists "attempts_select_own_or_admin" on public.attempts;
 create policy "attempts_select_own_or_admin" on public.attempts for select using (
-  student_id = auth.uid() or public.is_admin()
+  student_id = auth.uid()
+  or public.is_admin()
+  or exists (
+    select 1 from public.teacher_classes tc
+    join public.profiles p on p.class_id = tc.class_id
+    where tc.teacher_id = auth.uid() and p.id = attempts.student_id
+  )
 );
 drop policy if exists "attempts_insert_own" on public.attempts;
 create policy "attempts_insert_own" on public.attempts for insert with check (
   student_id = auth.uid()
   and exists (select 1 from public.exams e where e.id = exam_id and e.is_open)
+  and (
+    not exists (select 1 from public.exam_classes ec where ec.exam_id = exam_id)
+    or exists (
+      select 1 from public.exam_classes ec
+      join public.profiles p on p.class_id = ec.class_id
+      where ec.exam_id = exam_id and p.id = auth.uid()
+    )
+  )
 );
 drop policy if exists "attempts_update_own" on public.attempts;
 -- USING gates which existing rows can be touched (must be your own, still in

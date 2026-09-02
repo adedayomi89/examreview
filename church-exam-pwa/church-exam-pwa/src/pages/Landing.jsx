@@ -51,6 +51,12 @@ export default function Landing() {
               </span>
             </Link>
           </div>
+
+          <p className="text-center mt-8">
+            <Link to="/teacher/login" className="text-sm text-indigo/50 hover:text-indigo">
+              Class teacher? Sign in here →
+            </Link>
+          </p>
         </div>
       </main>
 

@@ -20,3 +20,5 @@ export const adminCreateStudent = (payload) => callFn('admin-create-student', pa
 export const adminDeleteStudent = (studentId) => callFn('admin-delete-student', { studentId })
 export const adminResetPassword = (studentId, newPassword) =>
   callFn('admin-reset-password', { studentId, newPassword })
+export const adminCreateTeacher = (payload) => callFn('admin-create-teacher', payload)
+export const adminDeleteTeacher = (teacherId) => callFn('admin-delete-teacher', { teacherId })

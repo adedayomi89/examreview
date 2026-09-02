@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import LoadingScreen from '../../components/LoadingScreen.jsx'
+import { isQuestionCorrect } from '../../lib/grading.js'
 
 export default function ExamResult() {
   const { examId } = useParams()
@@ -81,10 +82,8 @@ export default function ExamResult() {
         <h2 className="font-display text-lg font-semibold text-indigo mb-4">Review your answers</h2>
         <div className="flex flex-col gap-4">
           {questions.map((q, idx) => {
-            const correctIds = new Set(q.options.filter((o) => o.is_correct).map((o) => o.id))
-            const given = new Set(attempt.answers?.[q.id] || [])
-            const wasCorrect =
-              correctIds.size === given.size && [...correctIds].every((id) => given.has(id)) && correctIds.size > 0
+            const given = attempt.answers?.[q.id]
+            const wasCorrect = isQuestionCorrect(q, given)
 
             return (
               <div key={q.id} className="card p-5">
@@ -98,27 +97,79 @@ export default function ExamResult() {
                   </span>
                   <div className="rich-content flex-1" dangerouslySetInnerHTML={{ __html: q.question_html }} />
                 </div>
-                <div className="flex flex-col gap-2 pl-10">
-                  {q.options.map((opt) => {
-                    const isGiven = given.has(opt.id)
-                    const isCorrect = correctIds.has(opt.id)
-                    let style = 'border-indigo/10'
-                    if (isCorrect) style = 'border-forest bg-forest/8'
-                    else if (isGiven && !isCorrect) style = 'border-rose bg-rose/8'
-                    return (
-                      <div key={opt.id} className={`rounded-xl border px-4 py-2.5 flex items-center gap-2 text-sm ${style}`}>
-                        <span dangerouslySetInnerHTML={{ __html: opt.option_html }} className="flex-1 rich-content" />
-                        {isCorrect && <span className="text-forest text-xs font-semibold shrink-0">Correct</span>}
-                        {isGiven && !isCorrect && <span className="text-rose text-xs font-semibold shrink-0">Your answer</span>}
-                      </div>
-                    )
-                  })}
+
+                <div className="pl-10">
+                  {(q.question_type === 'single' || q.question_type === 'multiple' || q.question_type === 'true_false') && (
+                    <OptionReview question={q} given={new Set(Array.isArray(given) ? given : [])} />
+                  )}
+                  {q.question_type === 'fill_blank' && (
+                    <FillBlankReview question={q} given={Array.isArray(given) ? given[0] : ''} />
+                  )}
+                  {q.question_type === 'matching' && (
+                    <MatchingReview question={q} given={given && typeof given === 'object' ? given : {}} />
+                  )}
                 </div>
               </div>
             )
           })}
         </div>
       </div>
+    </div>
+  )
+}
+
+function OptionReview({ question, given }) {
+  const correctIds = new Set(question.options.filter((o) => o.is_correct).map((o) => o.id))
+  return (
+    <div className="flex flex-col gap-2">
+      {question.options.map((opt) => {
+        const isGiven = given.has(opt.id)
+        const isCorrect = correctIds.has(opt.id)
+        let style = 'border-indigo/10'
+        if (isCorrect) style = 'border-forest bg-forest/8'
+        else if (isGiven && !isCorrect) style = 'border-rose bg-rose/8'
+        return (
+          <div key={opt.id} className={`rounded-xl border px-4 py-2.5 flex items-center gap-2 text-sm ${style}`}>
+            <span dangerouslySetInnerHTML={{ __html: opt.option_html }} className="flex-1 rich-content" />
+            {isCorrect && <span className="text-forest text-xs font-semibold shrink-0">Correct</span>}
+            {isGiven && !isCorrect && <span className="text-rose text-xs font-semibold shrink-0">Your answer</span>}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function FillBlankReview({ question, given }) {
+  const accepted = question.options.map((o) => o.option_html).filter(Boolean)
+  const isCorrect = accepted.some((a) => a.trim().toLowerCase() === (given || '').trim().toLowerCase())
+  return (
+    <div className="flex flex-col gap-2 text-sm">
+      <div className={`rounded-xl border px-4 py-2.5 ${isCorrect ? 'border-forest bg-forest/8' : 'border-rose bg-rose/8'}`}>
+        Your answer: <span className="font-medium">{given || <em className="text-ink/40">(blank)</em>}</span>
+      </div>
+      {!isCorrect && (
+        <div className="rounded-xl border border-forest bg-forest/8 px-4 py-2.5">
+          Accepted answer{accepted.length > 1 ? 's' : ''}: <span className="font-medium">{accepted.join(', ')}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MatchingReview({ question, given }) {
+  return (
+    <div className="flex flex-col gap-2 text-sm">
+      {question.options.map((opt) => {
+        const chosen = given[opt.id] || ''
+        const isCorrect = chosen.trim().toLowerCase() === (opt.match_text || '').trim().toLowerCase()
+        return (
+          <div key={opt.id} className={`rounded-xl border px-4 py-2.5 ${isCorrect ? 'border-forest bg-forest/8' : 'border-rose bg-rose/8'}`}>
+            <span className="rich-content" dangerouslySetInnerHTML={{ __html: opt.option_html }} /> → <span className="font-medium">{chosen || <em className="text-ink/40">(no answer)</em>}</span>
+            {!isCorrect && <span className="block text-xs text-forest mt-1">Correct match: {opt.match_text}</span>}
+          </div>
+        )
+      })}
     </div>
   )
 }

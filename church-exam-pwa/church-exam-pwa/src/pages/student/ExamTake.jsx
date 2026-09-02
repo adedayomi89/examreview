@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabaseClient.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import CountdownTimer from '../../components/CountdownTimer.jsx'
 import LoadingScreen from '../../components/LoadingScreen.jsx'
+import { seededShuffle } from '../../lib/shuffle.js'
+import { scoreAttempt } from '../../lib/grading.js'
 
 export default function ExamTake() {
   const { examId } = useParams()
@@ -53,7 +55,8 @@ export default function ExamTake() {
           .select()
           .single()
         if (createErr) {
-          alert(createErr.message)
+          // Most likely cause: this exam is restricted to different class(es).
+          alert("This exam isn't available for your class.")
           navigate('/student')
           return
         }
@@ -66,10 +69,22 @@ export default function ExamTake() {
         .eq('exam_id', examId)
         .order('question_order', { ascending: true })
 
+      const withSortedOptions = (qData || []).map((q) => ({
+        ...q,
+        options: (q.options || []).sort((a, b) => a.option_order - b.option_order)
+      }))
+      // Shuffle question order and, within each question, option order —
+      // seeded by this attempt so it's stable across reloads but different
+      // per student.
+      const shuffledQuestions = seededShuffle(withSortedOptions, `${existing.id}:q`).map((q) => ({
+        ...q,
+        options: q.question_type === 'matching' ? q.options : seededShuffle(q.options, `${existing.id}:${q.id}`)
+      }))
+
       setExam(examData)
       setAttempt(existing)
       setAnswers(existing.answers || {})
-      setQuestions((qData || []).map((q) => ({ ...q, options: (q.options || []).sort((a, b) => a.option_order - b.option_order) })))
+      setQuestions(shuffledQuestions)
       setLoading(false)
     }
     if (profile) init()
@@ -86,25 +101,37 @@ export default function ExamTake() {
     [attempt]
   )
 
-  const toggleOption = (question, optionId) => {
+  const updateAnswer = (questionId, value) => {
     setAnswers((prev) => {
-      const current = prev[question.id] || []
-      let next
-      if (question.question_type === 'single') {
-        next = [optionId]
-      } else {
-        next = current.includes(optionId) ? current.filter((id) => id !== optionId) : [...current, optionId]
-      }
-      const merged = { ...prev, [question.id]: next }
+      const merged = { ...prev, [questionId]: value }
       persistAnswers(merged)
       return merged
     })
   }
 
-  const answeredCount = useMemo(
-    () => questions.filter((q) => (answers[q.id] || []).length > 0).length,
-    [questions, answers]
-  )
+  const toggleOption = (question, optionId) => {
+    const current = answers[question.id] || []
+    const next = question.question_type === 'multiple'
+      ? current.includes(optionId) ? current.filter((id) => id !== optionId) : [...current, optionId]
+      : [optionId]
+    updateAnswer(question.id, next)
+  }
+
+  const setFillBlank = (question, text) => updateAnswer(question.id, [text])
+
+  const setMatch = (question, optionId, chosenText) => {
+    const current = answers[question.id] || {}
+    updateAnswer(question.id, { ...current, [optionId]: chosenText })
+  }
+
+  const isAnswered = (q) => {
+    const a = answers[q.id]
+    if (q.question_type === 'fill_blank') return !!(a && a[0] && a[0].trim())
+    if (q.question_type === 'matching') return !!a && q.options.every((o) => a[o.id])
+    return !!a && a.length > 0
+  }
+
+  const answeredCount = useMemo(() => questions.filter(isAnswered).length, [questions, answers])
 
   const submit = useCallback(async () => {
     if (submittedRef.current) return
@@ -112,15 +139,7 @@ export default function ExamTake() {
     setSubmitting(true)
     clearTimeout(saveTimer.current)
 
-    let score = 0
-    let totalPoints = 0
-    questions.forEach((q) => {
-      totalPoints += q.points
-      const correctIds = q.options.filter((o) => o.is_correct).map((o) => o.id).sort()
-      const givenIds = [...(answers[q.id] || [])].sort()
-      const isMatch = correctIds.length === givenIds.length && correctIds.every((id, i) => id === givenIds[i])
-      if (isMatch && correctIds.length > 0) score += q.points
-    })
+    const { score, totalPoints } = scoreAttempt(questions, answers)
 
     await supabase
       .from('attempts')
@@ -166,29 +185,48 @@ export default function ExamTake() {
               </span>
               <div className="rich-content flex-1" dangerouslySetInnerHTML={{ __html: q.question_html }} />
             </div>
-            <div className="flex flex-col gap-2 pl-10">
-              {q.options.map((opt) => {
-                const selected = (answers[q.id] || []).includes(opt.id)
-                return (
-                  <button
-                    type="button"
-                    key={opt.id}
-                    onClick={() => toggleOption(q, opt.id)}
-                    className={`text-left rounded-2xl border px-4 py-3 flex items-start gap-3 transition-colors ${
-                      selected ? 'border-gold bg-gold/10' : 'border-indigo/12 hover:border-indigo/25'
-                    }`}
-                  >
-                    <span
-                      className={`mt-0.5 w-5 h-5 shrink-0 border-2 flex items-center justify-center text-[11px] font-bold ${
-                        q.question_type === 'single' ? 'rounded-full' : 'rounded-md'
-                      } ${selected ? 'bg-gold border-gold text-indigo-deep' : 'border-indigo/25 text-transparent'}`}
-                    >
-                      ✓
-                    </span>
-                    <span className="flex-1 rich-content" dangerouslySetInnerHTML={{ __html: opt.option_html }} />
-                  </button>
-                )
-              })}
+
+            <div className="pl-10">
+              {(q.question_type === 'single' || q.question_type === 'multiple' || q.question_type === 'true_false') && (
+                <div className="flex flex-col gap-2">
+                  {q.options.map((opt) => {
+                    const selected = (answers[q.id] || []).includes(opt.id)
+                    return (
+                      <button
+                        type="button"
+                        key={opt.id}
+                        onClick={() => toggleOption(q, opt.id)}
+                        className={`text-left rounded-2xl border px-4 py-3 flex items-start gap-3 transition-colors ${
+                          selected ? 'border-gold bg-gold/10' : 'border-indigo/12 hover:border-indigo/25'
+                        }`}
+                      >
+                        <span
+                          className={`mt-0.5 w-5 h-5 shrink-0 border-2 flex items-center justify-center text-[11px] font-bold ${
+                            q.question_type === 'multiple' ? 'rounded-md' : 'rounded-full'
+                          } ${selected ? 'bg-gold border-gold text-indigo-deep' : 'border-indigo/25 text-transparent'}`}
+                        >
+                          ✓
+                        </span>
+                        <span className="flex-1 rich-content" dangerouslySetInnerHTML={{ __html: opt.option_html }} />
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {q.question_type === 'fill_blank' && (
+                <input
+                  type="text"
+                  className="field max-w-md"
+                  placeholder="Type your answer…"
+                  value={(answers[q.id] && answers[q.id][0]) || ''}
+                  onChange={(e) => setFillBlank(q, e.target.value)}
+                />
+              )}
+
+              {q.question_type === 'matching' && (
+                <MatchingQuestion question={q} value={answers[q.id] || {}} onChange={(optId, text) => setMatch(q, optId, text)} />
+              )}
             </div>
           </div>
         ))}
@@ -206,6 +244,35 @@ export default function ExamTake() {
       <Link to="/student" className="text-xs text-ink/40 hover:text-ink/60 self-center">
         Leave without submitting (your progress is saved)
       </Link>
+    </div>
+  )
+}
+
+function MatchingQuestion({ question, value, onChange }) {
+  // The right-hand choices, shuffled once (stable for the lifetime of this
+  // render tree) so the correct order isn't given away positionally.
+  const rightChoices = useMemo(
+    () => seededShuffle(question.options.map((o) => o.match_text).filter(Boolean), `${question.id}:right`),
+    [question]
+  )
+
+  return (
+    <div className="flex flex-col gap-2">
+      {question.options.map((opt) => (
+        <div key={opt.id} className="flex items-center gap-3 flex-wrap">
+          <span className="rich-content flex-1 min-w-[140px]" dangerouslySetInnerHTML={{ __html: opt.option_html }} />
+          <select
+            className="field !w-auto min-w-[160px]"
+            value={value[opt.id] || ''}
+            onChange={(e) => onChange(opt.id, e.target.value)}
+          >
+            <option value="" disabled>Choose a match…</option>
+            {rightChoices.map((text) => (
+              <option key={text} value={text}>{text}</option>
+            ))}
+          </select>
+        </div>
+      ))}
     </div>
   )
 }

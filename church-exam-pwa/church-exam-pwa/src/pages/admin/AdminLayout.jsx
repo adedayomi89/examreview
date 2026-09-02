@@ -7,7 +7,9 @@ const NAV = [
   { to: '/admin', label: 'Overview', icon: '◈', end: true },
   { to: '/admin/exams', label: 'Exams', icon: '📝' },
   { to: '/admin/students', label: 'Students', icon: '🎓' },
+  { to: '/admin/teachers', label: 'Teachers', icon: '🧑‍🏫' },
   { to: '/admin/attempts', label: 'Results', icon: '📊' },
+  { to: '/admin/insights', label: 'Class insights', icon: '📈' },
   { to: '/admin/settings', label: 'Site settings', icon: '⚙' }
 ]
 

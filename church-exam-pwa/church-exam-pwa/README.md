@@ -34,6 +34,9 @@ church-exam-pwa/
 2. Once the project is ready, open **SQL Editor** → **New query**, paste in
    the entire contents of `sql/schema.sql` from this zip, and click **Run**.
    This creates every table, security rule, and the image storage bucket.
+   If you're upgrading an existing project rather than starting fresh, run
+   `sql/002_classes.sql` and then `sql/003_expansion.sql` instead (in that
+   order) — `schema.sql` already has everything for a brand-new project.
 3. Go to **Project settings → API**. You'll need three values shortly:
    - **Project URL**
    - **anon public** key
@@ -178,9 +181,51 @@ students work.
 ## 7. Ideas for later (not built yet, but easy to add)
 
 - Drag-and-drop question reordering (currently ordered by creation order)
-- Per-class or per-age-group exam groups
 - Email/SMS reminders when a new exam opens
 - Printable certificate for passing students
 - A "practice mode" separate from the graded quarterly review
 
 If you'd like any of these, just ask.
+
+---
+
+## 8. What's new: shuffling, more question types, classes-per-exam, teachers, WhatsApp sharing, self-service password reset
+
+**Shuffled questions & options** — each student sees a different order
+(stable across reloads, so leaving and coming back doesn't reshuffle them
+mid-exam), making it harder to copy off a neighbour.
+
+**More question types** — alongside single/multiple choice, you can now
+build **True/False**, **Fill in the blank** (list every acceptable wording),
+and **Matching** (pair left-hand terms to right-hand answers) questions from
+the exam editor.
+
+**Assign an exam to specific classes** — open an exam's editor and use the
+new "Visible to" section. Leave it on "All classes" for everyone, or pick
+just the classes it should apply to.
+
+**Class insights** (Admin → Class insights) — average score per class and
+the most-missed questions for any exam, so you know what's worth
+re-teaching.
+
+**Teachers** (Admin → Teachers) — give a class teacher their own login
+(email + password, set by you) and assign them one or more classes. They
+sign in at `/teacher/login` and can only manage students in their class(es)
+and see only those results — no access to exam content or other classes.
+
+**WhatsApp sharing** — once an exam is open, its card in Admin → Exams has
+a "Share on WhatsApp" button that opens a pre-written message with a link
+straight to the student sign-in page.
+
+**Student self-service password reset** — at signup, students now also set
+a "recovery code" (a memorable word only they know). If they forget their
+password later, they can reset it themselves from the student sign-in
+screen's "Forgot your password?" link, without needing you or a teacher —
+though if they forget the recovery code too, an admin or teacher can still
+reset their password manually as before.
+
+### One-time database step for this update
+If your database doesn't have this already, run `sql/003_expansion.sql` in
+Supabase's SQL Editor (SQL Editor → New query → paste → Run). It's additive
+and safe to run even if you're not sure — nothing in it deletes existing
+data.

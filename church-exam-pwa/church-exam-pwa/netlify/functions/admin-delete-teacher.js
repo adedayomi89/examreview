@@ -1,17 +1,17 @@
-import { requireStaff, serviceClient, assertCanManageStudent, json } from './_admin.js'
+import { requireStaff, assertAdmin, serviceClient, json } from './_admin.js'
 
 export async function handler(event) {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' })
 
   try {
     const staff = await requireStaff(event)
-    const { studentId } = JSON.parse(event.body || '{}')
-    if (!studentId) return json(400, { error: 'studentId is required.' })
+    assertAdmin(staff)
+
+    const { teacherId } = JSON.parse(event.body || '{}')
+    if (!teacherId) return json(400, { error: 'teacherId is required.' })
 
     const admin = serviceClient()
-    await assertCanManageStudent(admin, staff, studentId)
-
-    const { error } = await admin.auth.admin.deleteUser(studentId)
+    const { error } = await admin.auth.admin.deleteUser(teacherId)
     if (error) return json(400, { error: error.message })
 
     return json(200, { ok: true })

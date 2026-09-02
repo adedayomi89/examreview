@@ -17,3 +17,11 @@ export function RequireStudent() {
   if (!isStudent) return <Navigate to="/" replace />
   return <Outlet />
 }
+
+export function RequireTeacher() {
+  const { loading, session, isTeacher } = useAuth()
+  if (loading) return <LoadingScreen label="Checking your session…" />
+  if (!session) return <Navigate to="/teacher/login" replace />
+  if (!isTeacher) return <Navigate to="/" replace />
+  return <Outlet />
+}

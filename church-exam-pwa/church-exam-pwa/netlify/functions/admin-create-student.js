@@ -1,14 +1,23 @@
-import { requireAdmin, serviceClient, usernameToEmail, json } from './_admin.js'
+import { requireStaff, serviceClient, usernameToEmail, json } from './_admin.js'
 
 export async function handler(event) {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' })
 
   try {
-    await requireAdmin(event)
+    const staff = await requireStaff(event)
     const { fullName, username, password, classId } = JSON.parse(event.body || '{}')
 
     if (!fullName?.trim() || !username?.trim() || !password || password.length < 6) {
       return json(400, { error: 'Full name, username and a password of at least 6 characters are required.' })
+    }
+
+    if (staff.role === 'teacher') {
+      if (staff.classIds.length === 0) {
+        return json(403, { error: "You don't have a class assigned yet — ask your admin to assign one." })
+      }
+      if (!classId || !staff.classIds.includes(classId)) {
+        return json(403, { error: 'You can only add students to your own class.' })
+      }
     }
 
     const admin = serviceClient()

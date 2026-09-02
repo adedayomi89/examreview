@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
+import { useSettings } from '../../contexts/SettingsContext.jsx'
 
 export default function AdminExams() {
   const { profile } = useAuth()
+  const { settings } = useSettings()
   const navigate = useNavigate()
   const [exams, setExams] = useState(null)
   const [creating, setCreating] = useState(false)
@@ -44,6 +46,12 @@ export default function AdminExams() {
     const { error } = await supabase.from('exams').delete().eq('id', exam.id)
     if (error) return alert(error.message)
     setExams((prev) => prev.filter((e) => e.id !== exam.id))
+  }
+
+  const shareOnWhatsApp = (exam) => {
+    const link = `${window.location.origin}/student/login`
+    const text = `📚 "${exam.title}" is now open for ${settings.department_name} at ${settings.church_name}!\n\nSign in here to take it: ${link}`
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
   }
 
   return (
@@ -94,6 +102,14 @@ export default function AdminExams() {
                   Delete
                 </button>
               </div>
+              {exam.is_open && (
+                <button
+                  onClick={() => shareOnWhatsApp(exam)}
+                  className="btn-ghost !py-2 text-sm text-forest flex items-center justify-center gap-1.5"
+                >
+                  💬 Share on WhatsApp
+                </button>
+              )}
             </div>
           ))}
         </div>
