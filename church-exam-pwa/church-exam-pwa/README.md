@@ -229,3 +229,20 @@ If your database doesn't have this already, run `sql/003_expansion.sql` in
 Supabase's SQL Editor (SQL Editor → New query → paste → Run). It's additive
 and safe to run even if you're not sure — nothing in it deletes existing
 data.
+
+---
+
+## 9. Bug fixes: duplicate class relationship, and blank exam content on edit
+
+Two real bugs turned up during testing and are fixed here:
+
+- **Students/Results/Insights pages showing empty despite real data
+  existing.** A duplicate database relationship between students and
+  classes made Supabase refuse certain lookups (error code `PGRST201`).
+  Run `sql/004_fix_relationship.sql` once in Supabase's SQL Editor to clean
+  it up — safe to run any time, it only removes a redundant duplicate and
+  leaves everything else untouched.
+- **Opening an existing exam to edit it showed blank questions/options**
+  (while the correct-answer marks were still there). This was a genuine bug
+  in the rich-text editor component — fixed in code, no database change
+  needed for this one, just redeploying the updated files.

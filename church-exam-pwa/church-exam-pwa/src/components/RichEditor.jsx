@@ -13,7 +13,11 @@ export default function RichEditor({ value, onChange, placeholder, uploadFolder 
   const ref = useRef(null)
   const fileRef = useRef(null)
   const [uploading, setUploading] = useState(false)
-  const lastValue = useRef(value)
+  const lastValue = useRef() // intentionally starts undefined so the first
+  // render below always populates the box with any existing saved content —
+  // initializing this to `value` would make it look identical to `value` on
+  // mount and skip that first population, leaving saved questions/options
+  // looking blank when you reopen them for editing.
 
   useEffect(() => {
     if (ref.current && value !== lastValue.current && value !== ref.current.innerHTML) {

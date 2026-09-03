@@ -14,7 +14,7 @@ export default function AdminStudents() {
   const load = async () => {
     const { data } = await supabase
       .from('profiles')
-      .select('*, classes(name)')
+      .select('*, classes!class_id(name)')
       .eq('role', 'student')
       .order('full_name')
     setStudents(data || [])

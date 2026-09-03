@@ -23,7 +23,7 @@ export default function AdminInsights() {
       const [{ data: attempts }, { data: questions }] = await Promise.all([
         supabase
           .from('attempts')
-          .select('score, total_points, answers, profiles(class_id, classes(name))')
+          .select('score, total_points, answers, profiles(class_id, classes!class_id(name))')
           .eq('exam_id', examId)
           .eq('status', 'submitted'),
         supabase.from('questions').select('*, options(*)').eq('exam_id', examId).order('question_order')

@@ -15,7 +15,7 @@ export default function AdminAttempts() {
         supabase.from('exams').select('id, title').order('created_at', { ascending: false }),
         supabase
           .from('attempts')
-          .select('id, score, total_points, submitted_at, status, exam_id, exams(title), profiles(full_name, username, class_id, classes(name))')
+          .select('id, score, total_points, submitted_at, status, exam_id, exams(title), profiles(full_name, username, class_id, classes!class_id(name))')
           .eq('status', 'submitted')
           .order('submitted_at', { ascending: false })
       ])

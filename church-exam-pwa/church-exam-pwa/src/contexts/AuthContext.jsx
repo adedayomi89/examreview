@@ -15,7 +15,7 @@ export function AuthProvider({ children }) {
       setTeacherClassIds([])
       return
     }
-    let { data, error } = await supabase.from('profiles').select('*, classes(name)').eq('id', userId).single()
+    let { data, error } = await supabase.from('profiles').select('*, classes!class_id(name)').eq('id', userId).single()
     if (error) {
       // eslint-disable-next-line no-console
       console.error('Profile load (with class) failed, retrying without it:', error)
